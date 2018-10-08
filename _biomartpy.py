@@ -1,13 +1,16 @@
 """
 Simple interface for getting a lookup table of gene ID -> other attributes via
 biomaRt
+
+UPDATE: 2016-04-21 by nwieder
+Adjusted for use with PYTHON 3.x
 """
+
 import os
 import rpy2
 from rpy2 import robjects
 from rpy2.robjects import r
 import pandas
-import numpy as np
 
 r.library('biomaRt')
 
@@ -16,7 +19,6 @@ def rpy2_to_pandas(rdf, index_col=None):
     """
     Convert rpy2 dataframe representation to a pandas.DataFrame by dumping to
     an intermediate text file.
-
     Native support probably not coming anytime soon -- see
     https://github.com/pydata/pandas/issues/1448
     """
@@ -31,7 +33,6 @@ def rpy2_to_pandas(rdf, index_col=None):
 def list_marts():
     """
     List available marts
-
     >>> list_marts().ix[0:5]
                    biomart                              version
     0              ensembl         ENSEMBL GENES 75 (SANGER UK)
@@ -50,7 +51,6 @@ def list_marts():
 def list_datasets(mart_name, verbose=False):
     """
     Returns a pandas.DataFrame listing datasets in mart name
-
     >>> list_datasets('ensembl').ix[6:7]
                       dataset                          description  \\
     6  csavignyi_gene_ensembl       Ciona savignyi genes (CSAV2.0)   
@@ -69,7 +69,6 @@ def list_datasets(mart_name, verbose=False):
 def list_attributes(mart_name, dataset):
     """
     Returns a pandas.DataFrame listing attributes for mart name and dataset
-
     >>> mart_name = 'ensembl'
     >>> dataset = 'dmelanogaster_gene_ensembl'
     >>> list_attributes(mart_name, dataset)[:3]
@@ -87,7 +86,6 @@ def list_attributes(mart_name, dataset):
 def list_filters(mart_name, dataset):
     """
     List filters for mart name and dataset
-
     >>> mart_name = 'ensembl'
     >>> dataset = 'dmelanogaster_gene_ensembl'
     >>> list_filters(mart_name, dataset)[:3]
@@ -97,7 +95,6 @@ def list_filters(mart_name, dataset):
     2              end    Gene End (bp)
     <BLANKLINE>
     [3 rows x 2 columns]
-
     """
     dataset = r.useDataset(dataset, mart=r.useMart(mart_name))
     return rpy2_to_pandas(r.listFilters(dataset))
@@ -108,15 +105,11 @@ def make_lookup(mart_name, dataset, attributes, filters=None, values=None,
     """
     Given a mart name, dataset name, and a list of attributes, return
     a pandas.DataFrame indexed by the first attribute in the list provided.
-
     In R, filters is a character vector, and values is either a single
     character vector (if only one filter provided) or a list of character
     vectors.
-
     This function allows `filters` to be a dictionary where keys are filters
     and values are...values.
-
-
     >>> mart_name = 'ensembl'
     >>> dataset = 'dmelanogaster_gene_ensembl'
     >>> filters = ['flybase_gene_id', 'chromosome_name']
@@ -128,26 +121,19 @@ def make_lookup(mart_name, dataset, attributes, filters=None, values=None,
     ... attributes=attributes,
     ... filters=filters,
     ... values=values)
-
     Alternatively, make a dictionary of filters: values, in which case you
     don't need to provide `values` separately:
-
     >>> filters = {
     ... 'flybase_gene_id': ['FBgn0031208', 'FBgn0002121', 'FBgn0031209', 'FBgn0051973'],
     ... 'chromosome_name': ['2L']}
-
     >>> df2 = make_lookup(
     ... mart_name=mart_name,
     ... dataset=dataset,
     ... attributes=attributes,
     ... filters=filters)
-
     Confirm that both methods yield identical results:
-
     >>> assert np.all(df.values == df2.values)
-
     Check results:
-
     >>> df.head()
                     flybasename_gene chromosome_name
     flybase_gene_id                                 
@@ -157,24 +143,15 @@ def make_lookup(mart_name, dataset, attributes, filters=None, values=None,
     FBgn0051973                 Cda5              2L
     <BLANKLINE>
     [4 rows x 2 columns]
-
-
     Indexing by gene ID (or whatever was the first attribute provided):
-
     >>> df.ix['FBgn0031209']
     flybasename_gene    Ir21a
     chromosome_name        2L
     Name: FBgn0031209, dtype: object
-
-
-
     Extracting data:
-
     >>> df.ix['FBgn0031209']['flybasename_gene']
     'Ir21a'
-
     Or get all names:
-
     >>> df['flybasename_gene']
     flybase_gene_id
     FBgn0002121         l(2)gl
@@ -182,7 +159,6 @@ def make_lookup(mart_name, dataset, attributes, filters=None, values=None,
     FBgn0031209          Ir21a
     FBgn0051973           Cda5
     Name: flybasename_gene, dtype: object
-
     """
     mart = r.useDataset(dataset, mart=r.useMart(mart_name))
     attributes = robjects.StrVector(attributes)
@@ -198,11 +174,12 @@ def make_lookup(mart_name, dataset, attributes, filters=None, values=None,
         a ListVector of StrVectors"""
         # Could use ListVector directly with the dict, but want to guarantee
         # positional order of filters and values
-        f = robjects.StrVector(d.keys())
+
+        f = robjects.StrVector(list(d.keys()))
         v = robjects.ListVector(
             rpy2.rlike.container.TaggedList(
                 d.values(),
-                tags=d.keys()
+                tags=list(d.keys())
             )
         )
         return f, v
